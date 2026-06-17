@@ -1061,17 +1061,28 @@ Regex: `[A-Z0-9]{3,4}K[0-9]{6}`
 
 ### Repository & Infrastructure
 
-| Resource | URL |
-|----------|-----|
+| Resource | URL / Path |
+|----------|-----------|
 | Source code (main branch) | `https://github.tools.sap/I763161/gcts-analyzer` |
-| P2 update site (gh-pages) | `https://pages.github.tools.sap/I763161/gcts-analyzer/updatesite` |
-| Install landing page | `https://pages.github.tools.sap/I763161/gcts-analyzer/` |
+| Plugin JAR (direct download) | `dist/com.gmw.gcts.analyzer_1.0.0.jar` in repo |
+| P2 ZIP (offline install) | `dist/gcts-analyzer-updatesite-1.0.0.zip` in repo |
+| gh-pages branch (P2 files) | `https://github.tools.sap/I763161/gcts-analyzer/tree/gh-pages` |
 
-> **Note:** GitHub Actions is disabled by SAP enterprise administrators on
+> **Important — Pages Authentication Constraint:**
+> SAP enterprise GitHub (`github.tools.sap`) requires authentication for all
+> Pages URLs — even for public repositories. Eclipse's P2 client cannot
+> authenticate through the browser redirect, so
+> `https://pages.github.tools.sap/.../updatesite` returns a login redirect
+> instead of P2 metadata, causing the error:
+>
+> `org.eclipse.equinox.p2.core.ProvisionException: Unable to read repository`
+>
+> **Do NOT use the Pages URL as the P2 update site URL in Eclipse.**
+> Use the offline install methods described below instead.
+
+> **Note:** GitHub Actions is also disabled by SAP enterprise administrators on
 > `github.tools.sap`. Releases are built locally and pushed manually.
-> The `release.yml` workflow file is retained in `.github/workflows/` for
-> future use if Actions is ever enabled, or if the repo is mirrored to
-> github.com.
+> The `release.yml` workflow is retained for future use if Actions is enabled.
 
 ---
 
@@ -1188,63 +1199,121 @@ git commit -m "Release vX.Y.Z — publish P2 update site"
 git push -f origin gh-pages
 ```
 
-#### Step 5 — Verify the update site is live
+#### Step 5 — Verify the update site ZIP is intact
 
-Open in a browser — confirm new version JAR appears:
-```
-https://pages.github.tools.sap/I763161/gcts-analyzer/updatesite/plugins/
+```bash
+unzip -l "/Users/I763161/Documents/Vibe Coding/MCP Servers/TR_Tool/TR dependency/dist/gcts-analyzer-updatesite-1.0.0.zip" | grep -E "content|artifact|p2"
+# Should show: content.jar, artifacts.jar, p2.index
 ```
 
-#### Step 6 — Tag the release in git
+#### Step 6 — Copy updated files to dist/ and commit
 
 ```bash
 cd "/Users/I763161/Documents/Vibe Coding/MCP Servers/TR_Tool/TR dependency"
+
+# Copy fresh build outputs to dist/
+cp eclipse/com.gmw.gcts.analyzer.updatesite/target/com.gmw.gcts.analyzer.updatesite-*.zip \
+   dist/gcts-analyzer-updatesite-X.Y.Z.zip
+
+cp eclipse/com.gmw.gcts.analyzer/target/com.gmw.gcts.analyzer-*.jar \
+   dist/com.gmw.gcts.analyzer_X.Y.Z.jar
+
+git add dist/
+git commit -m "Release vX.Y.Z — updated dist artifacts"
+git push origin main
+```
+
+#### Step 7 — Tag the release in git
+
+```bash
 git tag vX.Y.Z
 git push origin vX.Y.Z
 ```
-
-#### Step 7 — Notify users (optional)
-
-Users already have the plugin installed will get the update automatically the next time they run:
-```
-Help → Check for Updates
-```
-Eclipse fetches the update site URL — if the version in `content.jar` is newer than what's installed, it offers an upgrade.
 
 ---
 
 ### What Existing Users Need to Do
 
-**First install (new user):**
-```
-Help → Install New Software → Add
-Name: gCTS Analyzer
-URL:  https://pages.github.tools.sap/I763161/gcts-analyzer/updatesite
-Select: gCTS Tools for ADT → Install → Restart Eclipse
-```
-
-**Upgrading to a new release:**
-```
-Help → Check for Updates → select gCTS Analyzer → Update → Restart Eclipse
-```
-
-**Installing offline (no network access to Pages):**
-1. Download the ZIP from the `gh-pages` branch: `updatesite/` folder contents
-2. In Eclipse: **Help → Install New Software → Add → Archive…** → select the ZIP
-3. Select **gCTS Tools for ADT** → Install → Restart
+> **Why the P2 URL doesn't work:**
+> SAP enterprise GitHub Pages requires authentication for every request.
+> Eclipse's P2 client cannot authenticate, so it gets a login redirect instead
+> of repository metadata. Use the offline methods below instead.
 
 ---
 
-### Troubleshooting the Build
+**Method 1 — Dropins JAR (Simplest — Recommended)**
+
+Install the plugin in 3 steps with no URL needed:
+
+1. Download `dist/com.gmw.gcts.analyzer_1.0.0.jar` from the repo
+2. Copy it to your Eclipse `dropins` folder:
+
+| OS | Dropins path |
+|----|-------------|
+| macOS | `/Applications/Eclipse.app/Contents/Eclipse/dropins/` |
+| Windows | `C:\eclipse\dropins\` |
+| Linux | `~/eclipse/dropins/` |
+
+3. Restart Eclipse with the `-clean` flag:
+
+```bash
+# macOS:
+/Applications/Eclipse.app/Contents/MacOS/eclipse -clean
+
+# Windows:
+eclipse.exe -clean
+```
+
+Verify: **Help → About Eclipse IDE → Installation Details → Plug-ins** — search for `com.gmw.gcts.analyzer`.
+
+---
+
+**Method 2 — Install from Local ZIP (Full P2 with version tracking)**
+
+1. Download `dist/gcts-analyzer-updatesite-1.0.0.zip` from the repo
+2. In Eclipse: **Help → Install New Software → Add**
+3. Click **Archive…** (not Local, not URL)
+4. Browse to the downloaded ZIP file → **Add**
+5. Tick **gCTS Tools for ADT** → **Next → Next → Finish**
+6. Restart Eclipse
+
+Advantage over dropins: Eclipse tracks the installation and can manage upgrades via **Help → Check for Updates** when a new ZIP is installed.
+
+---
+
+**Method 3 — Team Share via Internal Network Folder (P2 URL that works)**
+
+If your team has access to an internal web server or shared network drive that is accessible without authentication:
+
+1. Unzip `gcts-analyzer-updatesite-1.0.0.zip` to that server/share
+2. The install URL becomes `http://internal-server/gcts-analyzer/updatesite/`
+   or `file:///\\share\gcts-analyzer\updatesite\` (Windows UNC)
+3. This URL works in Eclipse because it requires no authentication
+
+---
+
+**Upgrading to a new release:**
+
+- **Dropins:** Delete the old JAR from `dropins/`, copy the new JAR, restart with `-clean`
+- **ZIP install:** Help → Install New Software → Add → Archive → new ZIP → update
+
+**Installing offline (no network access to Pages):**
+Download `dist/gcts-analyzer-updatesite-1.0.0.zip` from the repo and use **Method 2** above.
+
+---
+
+### Troubleshooting the Build & Install
 
 | Problem | Cause | Fix |
 |---------|-------|-----|
-| `TypeNotPresentException: P2ArtifactRepositoryLayout` | Running with JDK 17 but Tycho 5 needs JDK 21+ | Set `JAVA_HOME` to SapMachine 26 as shown in Step 2 |
-| `useJDK = BREE configured, but no toolchain found` | `~/.m2/toolchains.xml` missing or wrong path | Recreate the file with the correct JDK 17 path |
-| `Preview of features supported only at latest source level` | `--enable-preview` flag in `pom.xml` conflicts with BREE | Already fixed — do not re-add `--enable-preview` to compiler args |
-| `graph.clear() undefined` | Zest API difference — `clear()` does not exist | Already fixed — dispose nodes individually |
+| `Unable to read repository at pages.github.tools.sap/...` | SAP enterprise Pages requires authentication — Eclipse P2 client cannot authenticate | Use **Method 1 (dropins JAR)** or **Method 2 (local ZIP)** instead of the Pages URL |
+| `TypeNotPresentException: P2ArtifactRepositoryLayout` | Running `mvn` with JDK 17 but Tycho 5 needs JDK 21+ | Set `JAVA_HOME` to SapMachine 26 as shown in Step 2 |
+| `useJDK = BREE configured, but no toolchain found` | `~/.m2/toolchains.xml` missing or wrong path | Recreate the file with the correct JDK 17 path (see Prerequisites) |
+| `Preview of features supported only at latest source level` | `--enable-preview` flag in `pom.xml` conflicts with BREE | Do not re-add `--enable-preview` to compiler args — already removed |
+| `graph.clear() undefined` | Zest API — `clear()` does not exist on `Graph` | Already fixed — nodes disposed individually |
 | `Pattern matching in switch requires Java 21` | `case Type var ->` form not valid in Java 17 | Already fixed — use `instanceof` chain instead |
-| `BUILD FAILURE` — network error resolving Eclipse P2 | Firewall / proxy blocking `download.eclipse.org` | Run on corporate network or set Maven proxy in `~/.m2/settings.xml` |
+| Plugin not visible after dropins install | `-clean` flag not used on restart | Restart Eclipse with `eclipse -clean` (once only) |
+| `BUILD FAILURE` — network error resolving Eclipse P2 | Firewall / proxy blocking `download.eclipse.org` | Run on corporate network, or set Maven proxy in `~/.m2/settings.xml` |
 
 ---
 

@@ -1054,3 +1054,214 @@ Regex: `[A-Z0-9]{3,4}K[0-9]{6}`
 | `Cmd+Alt+G` (macOS) | Trigger Analyse Dependencies from anywhere |
 | `Ctrl+F3` | Activate ABAP object in ADT |
 | `F9` | Run as ABAP Application (Phase 1 manual trigger) |
+
+---
+
+## 12. Release Guide
+
+### Repository & Infrastructure
+
+| Resource | URL |
+|----------|-----|
+| Source code (main branch) | `https://github.tools.sap/I763161/gcts-analyzer` |
+| P2 update site (gh-pages) | `https://pages.github.tools.sap/I763161/gcts-analyzer/updatesite` |
+| Install landing page | `https://pages.github.tools.sap/I763161/gcts-analyzer/` |
+
+> **Note:** GitHub Actions is disabled by SAP enterprise administrators on
+> `github.tools.sap`. Releases are built locally and pushed manually.
+> The `release.yml` workflow file is retained in `.github/workflows/` for
+> future use if Actions is ever enabled, or if the repo is mirrored to
+> github.com.
+
+---
+
+### Prerequisites (one-time setup, already done)
+
+| Tool | Version | How to verify |
+|------|---------|---------------|
+| Java (SapMachine) | 26.0.1 | `java -version` |
+| Maven | 3.9.16 | `/opt/homebrew/bin/mvn -version` |
+| Maven toolchain (JDK 17) | 17.0.18 | `cat ~/.m2/toolchains.xml` |
+| Git | any | `git --version` |
+
+**Toolchain file** (`~/.m2/toolchains.xml`) must point to the JDK 17 installation:
+```xml
+<toolchains>
+  <toolchain>
+    <type>jdk</type>
+    <provides>
+      <id>JavaSE-17</id>
+      <version>17</version>
+    </provides>
+    <configuration>
+      <jdkHome>/opt/homebrew/Cellar/openjdk@17/17.0.18/libexec/openjdk.jdk/Contents/Home</jdkHome>
+    </configuration>
+  </toolchain>
+</toolchains>
+```
+
+---
+
+### Step-by-Step: How to Release a New Version
+
+#### Step 1 — Make your changes
+
+Edit source files under `TR dependency/` as normal.
+Increment the version in these three places if it is a version bump:
+
+| File | Field to update |
+|------|----------------|
+| `eclipse/com.gmw.gcts.analyzer/META-INF/MANIFEST.MF` | `Bundle-Version:` e.g. `1.1.0.qualifier` |
+| `eclipse/com.gmw.gcts.analyzer.feature/feature.xml` | `version=` attribute on `<feature>` |
+| `eclipse/pom.xml` | `<version>` in parent + all 3 child `pom.xml` files |
+
+#### Step 2 — Build the P2 update site locally
+
+```bash
+cd "/Users/I763161/Documents/Vibe Coding/MCP Servers/TR_Tool/TR dependency/eclipse"
+
+JAVA_HOME="/Library/Java/JavaVirtualMachines/sapmachine-jdk-26.0.1.jdk/Contents/Home" \
+  /opt/homebrew/bin/mvn clean package -DskipTests --batch-mode
+
+# Expected output:
+# [INFO] BUILD SUCCESS
+# Output JAR:  com.gmw.gcts.analyzer/target/com.gmw.gcts.analyzer-<version>.jar
+# Output site: com.gmw.gcts.analyzer.updatesite/target/repository/
+```
+
+#### Step 3 — Push source changes to main
+
+```bash
+cd "/Users/I763161/Documents/Vibe Coding/MCP Servers/TR_Tool/TR dependency"
+
+git add .
+git commit -m "Release vX.Y.Z — <short description of changes>"
+git push origin main
+```
+
+#### Step 4 — Publish the new P2 update site to gh-pages
+
+```bash
+# Create a fresh staging directory
+rm -rf /tmp/gcts-ghpages && mkdir -p /tmp/gcts-ghpages/updatesite
+
+# Copy P2 repository output
+cp -r "/Users/I763161/Documents/Vibe Coding/MCP Servers/TR_Tool/TR dependency/eclipse/com.gmw.gcts.analyzer.updatesite/target/repository/." \
+      /tmp/gcts-ghpages/updatesite/
+
+# Copy the landing page (edit version number in index.html if desired)
+cp "/Users/I763161/Documents/Vibe Coding/MCP Servers/TR_Tool/TR dependency/eclipse/com.gmw.gcts.analyzer.updatesite/target/repository/../../../.." 2>/dev/null || true
+
+# Re-create index.html with updated version
+cat > /tmp/gcts-ghpages/index.html <<'EOF'
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>gCTS Task Dependency Analyzer</title>
+  <style>body{font-family:sans-serif;max-width:700px;margin:40px auto;line-height:1.6}</style>
+</head>
+<body>
+  <h1>gCTS Task Dependency Analyzer</h1>
+  <p>Eclipse ADT plugin for detecting cross-task object dependencies in SAP gCTS Transport Requests.</p>
+  <h2>Install in Eclipse</h2>
+  <ol>
+    <li>Help → Install New Software → Add</li>
+    <li>Name: <code>gCTS Analyzer</code></li>
+    <li>URL: <code>https://pages.github.tools.sap/I763161/gcts-analyzer/updatesite</code></li>
+    <li>Select <em>gCTS Tools for ADT</em> → Install → Restart</li>
+  </ol>
+  <p><a href="https://github.tools.sap/I763161/gcts-analyzer">Source code and documentation →</a></p>
+</body>
+</html>
+EOF
+
+# Push to gh-pages (force-overwrite — gh-pages is always a snapshot of latest)
+cd /tmp/gcts-ghpages
+git init
+git config user.email "I763161@sap.com"
+git config user.name "I763161"
+git remote add origin https://github.tools.sap/I763161/gcts-analyzer.git
+git checkout --orphan gh-pages
+git add .
+git commit -m "Release vX.Y.Z — publish P2 update site"
+git push -f origin gh-pages
+```
+
+#### Step 5 — Verify the update site is live
+
+Open in a browser — confirm new version JAR appears:
+```
+https://pages.github.tools.sap/I763161/gcts-analyzer/updatesite/plugins/
+```
+
+#### Step 6 — Tag the release in git
+
+```bash
+cd "/Users/I763161/Documents/Vibe Coding/MCP Servers/TR_Tool/TR dependency"
+git tag vX.Y.Z
+git push origin vX.Y.Z
+```
+
+#### Step 7 — Notify users (optional)
+
+Users already have the plugin installed will get the update automatically the next time they run:
+```
+Help → Check for Updates
+```
+Eclipse fetches the update site URL — if the version in `content.jar` is newer than what's installed, it offers an upgrade.
+
+---
+
+### What Existing Users Need to Do
+
+**First install (new user):**
+```
+Help → Install New Software → Add
+Name: gCTS Analyzer
+URL:  https://pages.github.tools.sap/I763161/gcts-analyzer/updatesite
+Select: gCTS Tools for ADT → Install → Restart Eclipse
+```
+
+**Upgrading to a new release:**
+```
+Help → Check for Updates → select gCTS Analyzer → Update → Restart Eclipse
+```
+
+**Installing offline (no network access to Pages):**
+1. Download the ZIP from the `gh-pages` branch: `updatesite/` folder contents
+2. In Eclipse: **Help → Install New Software → Add → Archive…** → select the ZIP
+3. Select **gCTS Tools for ADT** → Install → Restart
+
+---
+
+### Troubleshooting the Build
+
+| Problem | Cause | Fix |
+|---------|-------|-----|
+| `TypeNotPresentException: P2ArtifactRepositoryLayout` | Running with JDK 17 but Tycho 5 needs JDK 21+ | Set `JAVA_HOME` to SapMachine 26 as shown in Step 2 |
+| `useJDK = BREE configured, but no toolchain found` | `~/.m2/toolchains.xml` missing or wrong path | Recreate the file with the correct JDK 17 path |
+| `Preview of features supported only at latest source level` | `--enable-preview` flag in `pom.xml` conflicts with BREE | Already fixed — do not re-add `--enable-preview` to compiler args |
+| `graph.clear() undefined` | Zest API difference — `clear()` does not exist | Already fixed — dispose nodes individually |
+| `Pattern matching in switch requires Java 21` | `case Type var ->` form not valid in Java 17 | Already fixed — use `instanceof` chain instead |
+| `BUILD FAILURE` — network error resolving Eclipse P2 | Firewall / proxy blocking `download.eclipse.org` | Run on corporate network or set Maven proxy in `~/.m2/settings.xml` |
+
+---
+
+### ABAP Backend — Deploy Changes
+
+When ABAP source files change, re-deploy them manually in ADT:
+
+| Object | File | Action |
+|--------|------|--------|
+| `ZCL_GCTS_TR_ANALYZER` | `abap/zcl_gcts_tr_analyzer/zcl_gcts_tr_analyzer.clas.abap` | Paste into ADT → Activate (Ctrl+F3) |
+| Local Types | `abap/zcl_gcts_tr_analyzer/zcl_gcts_tr_analyzer.clas.locals_def.abap` | Paste into **Local Types** tab of the class |
+| `ZGCTS_ANALYZE_HANDLER` | `abap/zgcts_analyze_handler/zgcts_analyze_handler.clas.abap` | Paste into ADT → Activate |
+| `ZCL_GCTS_DEP_ATC_CHECK` | `abap/zcl_gcts_dep_atc_check/zcl_gcts_dep_atc_check.clas.abap` | Paste into ADT → Activate |
+| `ZGCTS_DEP_HISTORY` | `abap/zgcts_dep_history/zgcts_dep_history.tabl.ddls` | Create table in ADT → Activate |
+
+After changing the ICF handler, test the endpoint:
+```bash
+curl -u "user:password" \
+  "https://<your-sap-host>/sap/bc/zgcts/analyze?tr=GMWK900691"
+```

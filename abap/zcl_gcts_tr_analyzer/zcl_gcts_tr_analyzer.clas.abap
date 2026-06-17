@@ -165,22 +165,21 @@ CLASS zcl_gcts_tr_analyzer IMPLEMENTATION.
 " ═════════════════════════════════════════════════════════════════════════════
   METHOD stage1_inventory.
     TRY.
-        " transport->for() returns if_xco_cp_transport (no tasks attribute)
-        " get_request() returns if_xco_cp_tr_request which has tasks
+        " get_request() returns if_xco_cp_tr_request
+        " get_tasks() returns the task list from the request
         DATA(lo_request) = xco_cp_cts=>transport->for( CONV sxco_transport( iv_tr ) )->get_request( ).
-        DATA(lt_tasks)   = lo_request->tasks->all( ).
+        DATA(lt_tasks)   = lo_request->get_tasks( ).
 
         LOOP AT lt_tasks INTO DATA(lo_task).
           " lo_task->value gives the task number (e.g. GMWK900692)
-          DATA(lv_task_id) = lo_task->value.
+          DATA(lv_task_id) = CONV string( lo_task->value ).
           TRY.
-              LOOP AT lo_task->objects->all( ) INTO DATA(lo_obj).
-                " object_key provides pgmid, object type, obj_name
-                DATA(ls_key) = lo_obj->object_key.
+              LOOP AT lo_task->get_objects( ) INTO DATA(lo_obj).
+                DATA(ls_key) = lo_obj->get_object_key( ).
                 APPEND VALUE #(
                   task_id  = lv_task_id
                   obj_type = ls_key-pgmid && '/' && ls_key-object
-                  obj_name = ls_key-obj_name ) TO mt_objects.
+                  obj_name = CONV string( ls_key-obj_name ) ) TO mt_objects.
               ENDLOOP.
           CATCH cx_root.
           ENDTRY.

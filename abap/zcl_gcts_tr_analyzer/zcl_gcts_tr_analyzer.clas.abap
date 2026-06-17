@@ -165,9 +165,10 @@ CLASS zcl_gcts_tr_analyzer IMPLEMENTATION.
 " ═════════════════════════════════════════════════════════════════════════════
   METHOD stage1_inventory.
     TRY.
-        " SXCO_TRANSPORT is CHAR20 — must convert from string
-        DATA(lo_tr)    = xco_cp_cts=>transport->for( CONV sxco_transport( iv_tr ) ).
-        DATA(lt_tasks) = lo_tr->tasks->all( ).
+        " transport->for() returns if_xco_cp_transport (no tasks attribute)
+        " get_request() returns if_xco_cp_tr_request which has tasks
+        DATA(lo_request) = xco_cp_cts=>transport->for( CONV sxco_transport( iv_tr ) )->get_request( ).
+        DATA(lt_tasks)   = lo_request->tasks->all( ).
 
         LOOP AT lt_tasks INTO DATA(lo_task).
           " lo_task->value gives the task number (e.g. GMWK900692)

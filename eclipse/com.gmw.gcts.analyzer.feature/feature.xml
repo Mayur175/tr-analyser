@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feature
+    id="com.gmw.gcts.analyzer.feature"
+    label="gCTS Task Dependency Analyzer"
+    version="1.0.0.qualifier"
+    provider-name="GMW"
+    plugin="com.gmw.gcts.analyzer">
+
+  <description>
+    Detects cross-task object dependencies in gCTS Transport Requests
+    and recommends a safe pull order to prevent activation failures.
+    Supports CLAS, INTF, TABL, DTEL, DDLS, DDLX, BDEF, FUGR.
+  </description>
+
+  <copyright>
+    Copyright (c) 2024 GMW. All rights reserved.
+  </copyright>
+
+  <license url="https://www.apache.org/licenses/LICENSE-2.0">
+    Apache License, Version 2.0
+  </license>
+
+  <requires>
+    <import plugin="org.eclipse.ui"                    version="3.5.0" match="greaterOrEqual"/>
+    <import plugin="org.eclipse.core.runtime"          version="3.7.0" match="greaterOrEqual"/>
+    <import plugin="org.eclipse.jface"                 version="3.7.0" match="greaterOrEqual"/>
+    <import plugin="org.eclipse.equinox.security"      version="1.0.0" match="greaterOrEqual"/>
+  </requires>
+
+  <plugin
+      id="com.gmw.gcts.analyzer"
+      download-size="0"
+      install-size="0"
+      version="0.0.0"
+      unpack="false"/>
+
+</feature>

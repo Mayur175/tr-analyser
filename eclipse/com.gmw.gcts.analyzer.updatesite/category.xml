@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<site>
+  <feature
+      url="features/com.gmw.gcts.analyzer.feature_1.0.0.jar"
+      id="com.gmw.gcts.analyzer.feature"
+      version="1.0.0.qualifier">
+    <category name="gmw.gcts"/>
+  </feature>
+
+  <category-def name="gmw.gcts" label="gCTS Tools for ADT">
+    <description>
+      SAP gCTS developer tools for Eclipse ADT.
+      Includes the TR Task Dependency Analyzer.
+    </description>
+  </category-def>
+</site>
